@@ -107,15 +107,30 @@ const UserMiddleware = async (
   }
 };
 
-const PBKDF2_SALT = new TextEncoder().encode("gopratle-calendar-token-salt-v1");
-const PBKDF2_ITERATIONS = 100000;
+function getEnv(key: string): string | undefined {
+  if (typeof Deno !== "undefined" && Deno?.env?.get) {
+    return Deno.env.get(key);
+  }
+  if (typeof process !== "undefined" && process?.env) {
+    return process.env[key];
+  }
+  return undefined;
+}
 
-async function deriveAesKey(secret: string): Promise<CryptoKey> {
-  const enc = new TextEncoder();
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const secret = getEnv("GOOGLE_CALENDAR_ENCRYPTION_KEY");
+  if (!secret) {
+    throw new Error(
+      "Missing GOOGLE_CALENDAR_ENCRYPTION_KEY environment secret. " +
+      "Set this secret in your Supabase project before using calendar encryption.",
+    );
+  }
+
+  const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
-    enc.encode(secret),
-    "PBKDF2",
+    encoder.encode(secret),
+    { name: "PBKDF2" },
     false,
     ["deriveKey"],
   );
@@ -123,8 +138,8 @@ async function deriveAesKey(secret: string): Promise<CryptoKey> {
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: PBKDF2_SALT,
-      iterations: PBKDF2_ITERATIONS,
+      salt: encoder.encode("gopratle-calendar-salt-v1"),
+      iterations: 100000,
       hash: "SHA-256",
     },
     keyMaterial,
@@ -134,45 +149,33 @@ async function deriveAesKey(secret: string): Promise<CryptoKey> {
   );
 }
 
-function getEncryptionSecret(): string {
-  const secret = Deno.env.get("GOOGLE_CALENDAR_ENCRYPTION_KEY");
-  if (!secret) {
-    throw new Error(
-      "Missing GOOGLE_CALENDAR_ENCRYPTION_KEY environment secret.",
-    );
-  }
-  return secret;
-}
-
-function base64ToArrayBuffer(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-async function decryptToken(cipherBase64: string): Promise<string> {
-  if (!cipherBase64) return "";
-  const secret = getEncryptionSecret();
-  const key = await deriveAesKey(secret);
-
-  const combined = base64ToArrayBuffer(cipherBase64);
-  if (combined.length < 13) {
-    throw new Error("Invalid cipher payload: insufficient length");
+async function decryptToken(encryptedString: string): Promise<string> {
+  if (!encryptedString) return "";
+  const parts = encryptedString.split(":");
+  if (parts.length !== 2) {
+    throw new Error("Invalid encrypted token format: expected iv:ciphertext");
   }
 
-  const iv = combined.slice(0, 12);
-  const data = combined.slice(12);
+  const [ivHex, cipherHex] = parts;
+  if (!ivHex || !cipherHex) {
+    throw new Error("Invalid encrypted token format: empty components");
+  }
+
+  const ivMatches = ivHex.match(/.{1,2}/g);
+  const cipherMatches = cipherHex.match(/.{1,2}/g);
+
+  if (!ivMatches || !cipherMatches) {
+    throw new Error("Invalid hex characters in encrypted token");
+  }
+
+  const iv = new Uint8Array(ivMatches.map((b) => parseInt(b, 16)));
+  const cipher = new Uint8Array(cipherMatches.map((b) => parseInt(b, 16)));
+  const key = await getEncryptionKey();
 
   const decryptedBuffer = await crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv,
-    },
+    { name: "AES-GCM", iv },
     key,
-    data,
+    cipher,
   );
 
   return new TextDecoder().decode(decryptedBuffer);

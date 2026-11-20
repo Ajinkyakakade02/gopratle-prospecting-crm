@@ -292,6 +292,7 @@ export const ContactStatusSelector = () => {
         id: record.id,
         data: { status: nextStatus, last_seen: new Date().toISOString() },
         previousData: record,
+        meta: { stageChangeLogged: true },
       },
       {
         mutationMode: "optimistic",

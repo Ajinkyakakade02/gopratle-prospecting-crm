@@ -11,10 +11,13 @@ function getEnv(key: string): string | undefined {
 }
 
 async function getEncryptionKey(): Promise<CryptoKey> {
-  const secret =
-    getEnv("GOOGLE_CALENDAR_ENCRYPTION_KEY") ||
-    getEnv("SUPABASE_SERVICE_ROLE_KEY") ||
-    "gopratle-calendar-default-secret-key-32";
+  const secret = getEnv("GOOGLE_CALENDAR_ENCRYPTION_KEY");
+  if (!secret) {
+    throw new Error(
+      "Missing GOOGLE_CALENDAR_ENCRYPTION_KEY environment secret. " +
+      "Set this secret in your Supabase project before using calendar encryption.",
+    );
+  }
 
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(

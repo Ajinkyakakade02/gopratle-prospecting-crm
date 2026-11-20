@@ -2,9 +2,13 @@
 
 This guide provides the complete, authoritative instructions for deploying GoPratle Prospecting CRM (Phase 1 & Phase 2) to a new or existing Supabase project using the **Supabase Dashboard**.
 
-> **Supabase Project Reference:** `vnhulnzcxhhexvainfjp`  
-> **Google Cloud Project:** `GoPratle Prospecting CRM`  
+> **Supabase Project Reference:** `[YOUR_SUPABASE_PROJECT_REF]` *(e.g. `vnhulnzcxhhexvainfjp` for the current development project)*
+> **Google Cloud Project:** `GoPratle Prospecting CRM`
 > **Calendar API Scope:** `https://www.googleapis.com/auth/calendar.events`
+
+> [!IMPORTANT]
+> **Configurable Project Reference Notice:**
+> Do **not** assume `vnhulnzcxhhexvainfjp` is the project reference for your target deployment environment. Look up your actual project reference in your Supabase Dashboard URL (`https://supabase.com/dashboard/project/<your-project-ref>`) and replace `[YOUR_SUPABASE_PROJECT_REF]` throughout all redirect URIs, API URLs, and deployment commands.
 
 ---
 
@@ -80,16 +84,18 @@ If applying via migration history or Supabase CLI (`supabase db push`), execute 
 
 Before deploying the Edge Functions, set the required environment secrets in the Supabase Dashboard:
 
-1. Navigate to: **Project Settings → Edge Functions → Secrets** (`https://supabase.com/dashboard/project/vnhulnzcxhhexvainfjp/settings/functions`).
+1. Navigate to: **Project Settings → Edge Functions → Secrets** (`https://supabase.com/dashboard/project/[YOUR_SUPABASE_PROJECT_REF]/settings/functions`).
 2. Add the following secrets by variable name:
 
 | Secret Name | Required | Description | Example / Notes |
 | :--- | :---: | :--- | :--- |
 | `GOOGLE_CLIENT_ID` | **Yes** | Google OAuth 2.0 Client ID from Google Cloud Console | `xxxxxx.apps.googleusercontent.com` |
-| `GOOGLE_CLIENT_SECRET` | **Yes** | Google OAuth 2.0 Client Secret from Google Cloud Console | Keep strictly confidential |
-| `GOOGLE_CALENDAR_ENCRYPTION_KEY` | **Yes** | High-entropy secret key for AES-256-GCM token encryption at rest | Minimum 32 characters (e.g. generated via `openssl rand -hex 32`) |
+| `GOOGLE_CLIENT_SECRET` | **Yes** | Google OAuth 2.0 Client Secret from Google Cloud Console | Keep strictly confidential on server |
+| `GOOGLE_CALENDAR_ENCRYPTION_KEY` | **Yes** | High-entropy master secret key for AES-256-GCM token encryption at rest | Minimum 32 characters (e.g. generated via `openssl rand -hex 32`) |
 | `CRM_FRONTEND_URL` | **Yes** | Base URL of the GoPratle CRM web application | `http://localhost:5173` (dev) or `https://crm.yourdomain.com` (prod) |
-| `GOOGLE_CALENDAR_REDIRECT_URI` | Optional | Explicit redirect URI (defaults to the callback function URL if unset) | `https://vnhulnzcxhhexvainfjp.supabase.co/functions/v1/google-calendar-callback` |
+| `ALLOWED_REDIRECT_ORIGINS` | Optional | Additional trusted production origins (comma-separated) | `https://staging.yourdomain.com, https://app.yourdomain.com` |
+| `ENVIRONMENT` | Optional | Environment mode flag | Set to `development` to allow `localhost` / `127.0.0.1` redirects; defaults to strict production |
+| `GOOGLE_CALENDAR_REDIRECT_URI` | Optional | Explicit redirect URI (defaults to `<SUPABASE_URL>/functions/v1/google-calendar-callback` if unset) | `https://[YOUR_SUPABASE_PROJECT_REF].supabase.co/functions/v1/google-calendar-callback` |
 
 > **Note on Built-in Supabase Secrets:**  
 > `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SB_PUBLISHABLE_KEY` are injected automatically by the Supabase Edge Runtime.
@@ -104,11 +110,11 @@ Before deploying the Edge Functions, set the required environment secrets in the
 | :--- | :---: | :--- |
 | `google-calendar-connect` | **OFF** *(handled in-code)* | Initiates OAuth flow, creates CSRF state, returns Google Auth URL |
 | `google-calendar-callback` | **MUST BE OFF (Disabled)** | Receives Google redirect (`code`, `state`), consumes state, exchanges tokens, encrypts tokens, redirects to frontend |
-| `google-calendar-create-event` | **OFF** *(handled in-code)* | Schedules/updates calendar event for task, checks/refreshes token, formats Asian timezone |
+| `google-calendar-create-event` | **OFF** *(handled in-code)* | Schedules/updates calendar event for task, verifies task ownership, formats Asian timezone |
 | `google-calendar-disconnect` | **OFF** *(handled in-code)* | Revokes Google token and removes connection record from database |
 
 > **CRITICAL: Why `google-calendar-callback` JWT Verification MUST BE OFF:**  
-> When the user authorizes the app in Google, Google's servers redirect the browser directly to `https://vnhulnzcxhhexvainfjp.supabase.co/functions/v1/google-calendar-callback?code=...&state=...`. Google does NOT provide a Supabase Authorization header. If Gateway JWT verification is enabled, Supabase will reject the redirect with a `401 Unauthorized` before the code can run. The endpoint is protected against CSRF via the single-use cryptographic `state` token verified against Postgres.
+> When the user authorizes the app in Google, Google's servers redirect the browser directly to `https://[YOUR_SUPABASE_PROJECT_REF].supabase.co/functions/v1/google-calendar-callback?code=...&state=...`. Google does NOT provide a Supabase Authorization header. If Gateway JWT verification is enabled, Supabase will reject the redirect with a `401 Unauthorized` before the code can run. The endpoint is protected against CSRF via the single-use cryptographic `state` token verified against Postgres.
 
 ---
 
@@ -116,7 +122,7 @@ Before deploying the Edge Functions, set the required environment secrets in the
 
 The Supabase Dashboard editor only accepts a single `index.ts` file per function and cannot resolve relative imports like `../_shared/`. Pre-bundled, self-contained standalone files are available in `supabase/functions/dashboard-standalone/`.
 
-1. Go to **Edge Functions** in your Supabase Dashboard: `https://supabase.com/dashboard/project/vnhulnzcxhhexvainfjp/functions`.
+1. Go to **Edge Functions** in your Supabase Dashboard: `https://supabase.com/dashboard/project/[YOUR_SUPABASE_PROJECT_REF]/functions`.
 2. Click **Create Function**.
 3. For each of the 4 functions:
    - **Function 1:** Name: `google-calendar-connect`  
@@ -149,10 +155,11 @@ If Supabase CLI is available on your machine, deploy all functions directly from
 cd atomic-crm
 
 # Deploy each function without gateway JWT enforcement (auth is enforced in function code)
-npx supabase functions deploy google-calendar-connect --project-ref vnhulnzcxhhexvainfjp --no-verify-jwt
-npx supabase functions deploy google-calendar-callback --project-ref vnhulnzcxhhexvainfjp --no-verify-jwt
-npx supabase functions deploy google-calendar-create-event --project-ref vnhulnzcxhhexvainfjp --no-verify-jwt
-npx supabase functions deploy google-calendar-disconnect --project-ref vnhulnzcxhhexvainfjp --no-verify-jwt
+# Replace [YOUR_SUPABASE_PROJECT_REF] with your Supabase project ID (e.g., vnhulnzcxhhexvainfjp)
+npx supabase functions deploy google-calendar-connect --project-ref [YOUR_SUPABASE_PROJECT_REF] --no-verify-jwt
+npx supabase functions deploy google-calendar-callback --project-ref [YOUR_SUPABASE_PROJECT_REF] --no-verify-jwt
+npx supabase functions deploy google-calendar-create-event --project-ref [YOUR_SUPABASE_PROJECT_REF] --no-verify-jwt
+npx supabase functions deploy google-calendar-disconnect --project-ref [YOUR_SUPABASE_PROJECT_REF] --no-verify-jwt
 ```
 
 ---
@@ -170,12 +177,13 @@ npx supabase functions deploy google-calendar-disconnect --project-ref vnhulnzcx
 4. Navigate to **APIs & Services → Credentials**:
    - Click on your OAuth 2.0 Web Client ID.
    - **Authorized JavaScript origins:**
-     - `http://localhost:5173`
-     - Your production frontend domain (e.g., `https://gopratle-crm.vercel.app`)
+     - `http://localhost:5173` (for local development)
+     - Your production frontend domain (e.g., `https://crm.yourdomain.com`)
    - **Authorized redirect URIs (EXACT URI):**
      ```text
-     https://vnhulnzcxhhexvainfjp.supabase.co/functions/v1/google-calendar-callback
+     https://[YOUR_SUPABASE_PROJECT_REF].supabase.co/functions/v1/google-calendar-callback
      ```
+     *(Example: `https://vnhulnzcxhhexvainfjp.supabase.co/functions/v1/google-calendar-callback`)*
    - Click **Save**.
 
 ---
@@ -186,7 +194,7 @@ Configure these variables in your hosting provider (Vercel, Netlify, Cloudflare 
 
 ```env
 # Supabase Project URL
-VITE_SUPABASE_URL=https://vnhulnzcxhhexvainfjp.supabase.co
+VITE_SUPABASE_URL=https://[YOUR_SUPABASE_PROJECT_REF].supabase.co
 
 # Primary Supabase Frontend Publishable Key (Required by Atomic CRM core)
 VITE_SB_PUBLISHABLE_KEY=your-supabase-publishable-or-anon-key-here

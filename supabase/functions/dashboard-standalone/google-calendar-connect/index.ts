@@ -117,6 +117,81 @@ const getUserSale = async (user: User) => {
   )?.data;
 };
 
+function isDevelopmentMode(): boolean {
+  const env =
+    Deno.env.get("ENVIRONMENT") ||
+    Deno.env.get("DENO_ENV") ||
+    Deno.env.get("NODE_ENV");
+  const allowLocalhost = Deno.env.get("ALLOW_LOCALHOST_REDIRECTS");
+  return (
+    env?.toLowerCase() === "development" ||
+    allowLocalhost?.toLowerCase() === "true"
+  );
+}
+
+/**
+ * Validate return_url against an allowlist of permitted CRM frontend origins.
+ *
+ * Rules:
+ * 1. Localhost and 127.0.0.1 are ONLY allowed when development mode is explicitly enabled.
+ * 2. In production / non-dev, only CRM_FRONTEND_URL and origins in ALLOWED_REDIRECT_ORIGINS are permitted.
+ * 3. Any untrusted, unrecognized, or invalid return_url is rejected and falls back to defaultFrontendUrl.
+ */
+function validateReturnUrl(url: string, defaultFrontendUrl: string): string {
+  const crmFrontendUrl = Deno.env.get("CRM_FRONTEND_URL");
+  const fallbackUrl = defaultFrontendUrl || crmFrontendUrl || "http://localhost:5173";
+
+  if (!url || typeof url !== "string") {
+    return fallbackUrl;
+  }
+
+  try {
+    const parsed = new URL(url);
+    const isDev = isDevelopmentMode();
+
+    // Only allow localhost in explicitly enabled development mode
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+      if (isDev) {
+        return url;
+      }
+      console.warn(`Rejected localhost return_url in production/non-dev mode: ${parsed.origin}`);
+      return fallbackUrl;
+    }
+
+    const allowedOrigins = new Set<string>();
+    if (crmFrontendUrl) {
+      try {
+        allowedOrigins.add(new URL(crmFrontendUrl).origin);
+      } catch {
+        // invalid
+      }
+    }
+
+    const additionalOrigins = Deno.env.get("ALLOWED_REDIRECT_ORIGINS");
+    if (additionalOrigins) {
+      for (const origin of additionalOrigins.split(",")) {
+        const trimmed = origin.trim();
+        if (trimmed) {
+          try {
+            allowedOrigins.add(new URL(trimmed).origin);
+          } catch {
+            // invalid
+          }
+        }
+      }
+    }
+
+    if (allowedOrigins.has(parsed.origin)) {
+      return url;
+    }
+
+    console.warn(`Rejected untrusted return_url origin: ${parsed.origin}`);
+    return fallbackUrl;
+  } catch {
+    return fallbackUrl;
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
@@ -185,10 +260,15 @@ Deno.serve(async (req: Request) =>
           }
         }
 
+        const defaultFrontendUrl =
+          Deno.env.get("CRM_FRONTEND_URL") || "http://localhost:5173";
+
         if (!returnUrl) {
-          returnUrl =
-            Deno.env.get("CRM_FRONTEND_URL") || "http://localhost:5173";
+          returnUrl = defaultFrontendUrl;
         }
+
+        // Validate return_url against an allowlist of permitted origins
+        returnUrl = validateReturnUrl(returnUrl, defaultFrontendUrl);
 
         // Generate cryptographically secure random state (CSRF prevention)
         const state = crypto.randomUUID();
@@ -220,16 +300,19 @@ Deno.serve(async (req: Request) =>
 
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${authParams.toString()}`;
 
-        // Return URL for client redirect
-        return new Response(
-          JSON.stringify({
-            url: authUrl,
-            state: state,
-          }),
-          {
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          },
-        );
+        if (req.method === "POST" || req.headers.get("accept")?.includes("application/json")) {
+          return new Response(
+            JSON.stringify({
+              url: authUrl,
+              state: state,
+            }),
+            {
+              headers: { "Content-Type": "application/json", ...corsHeaders },
+            },
+          );
+        }
+
+        return Response.redirect(authUrl, 302);
       }),
     ),
   ),

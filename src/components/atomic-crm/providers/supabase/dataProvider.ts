@@ -360,6 +360,72 @@ const lifeCycleCallbacks: ResourceCallbacks[] = [
         "background",
       ])(params);
     },
+    beforeUpdate: async (params, dataProvider) => {
+      if (!params.meta?.stageChangeLogged && params.data?.status) {
+        let previousStatus = params.previousData?.status;
+        if (!previousStatus) {
+          try {
+            const existing = await dataProvider.getOne("contacts", {
+              id: params.id,
+            });
+            previousStatus = existing?.data?.status;
+          } catch {
+            // ignore
+          }
+        }
+
+        if (previousStatus && previousStatus !== params.data.status) {
+          const stageLabels: Record<string, string> = {
+            new: "New",
+            contacted: "Contacted",
+            "follow-up": "Follow-up",
+            "meeting-scheduled": "Meeting Scheduled",
+            closed: "Closed",
+          };
+          const prevStageLabel = stageLabels[previousStatus] || previousStatus;
+          const nextStageLabel =
+            stageLabels[params.data.status] || params.data.status;
+          const timestamp = new Date().toISOString();
+
+          let salesId = params.data.sales_id || params.previousData?.sales_id;
+          if (!salesId) {
+            try {
+              const {
+                data: { user },
+              } = await getSupabaseClient().auth.getUser();
+              if (user) {
+                const { data: sale } = await getSupabaseClient()
+                  .from("sales")
+                  .select("id")
+                  .eq("user_id", user.id)
+                  .maybeSingle();
+                if (sale) salesId = sale.id;
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          try {
+            await dataProvider.create("contact_notes", {
+              data: {
+                contact_id: params.id,
+                text: `Stage changed from **${prevStageLabel}** to **${nextStageLabel}**`,
+                status: params.data.status,
+                sales_id: salesId,
+                date: timestamp,
+              },
+            });
+          } catch (e) {
+            console.warn("Failed to record stage change note in dataProvider:", e);
+          }
+
+          params.data.last_seen = timestamp;
+        }
+      }
+
+      return params;
+    },
   },
   {
     resource: "companies",

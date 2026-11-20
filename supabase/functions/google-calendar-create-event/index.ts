@@ -3,6 +3,7 @@ import { corsHeaders, OptionsMiddleware } from "../_shared/cors.ts";
 import { createErrorResponse } from "../_shared/utils.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
+import { getUserSale } from "../_shared/getUserSale.ts";
 import { decryptToken, encryptToken } from "../_shared/crypto.ts";
 
 async function getValidAccessToken(connection: any): Promise<string> {
@@ -105,6 +106,15 @@ Deno.serve(async (req: Request) =>
 
         if (taskError || !task) {
           return createErrorResponse(404, `Task with ID ${taskId} not found`);
+        }
+
+        // Task ownership check: verify the task belongs to the authenticated user
+        const sale = await getUserSale(user);
+        if (!sale) {
+          return createErrorResponse(404, "Sales profile not found for user");
+        }
+        if (task.sales_id !== sale.id) {
+          return createErrorResponse(403, "You are not authorized to sync this task to Google Calendar");
         }
 
         // Fetch Google Calendar connection for this user

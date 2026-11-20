@@ -167,7 +167,7 @@ export const Task = ({
               </div>
             )}
 
-            {task.google_event_status === "failed" && !task.google_event_link && (
+            {task.google_event_status === "failed" && (
               <div className="flex items-center gap-2 mt-1">
                 <span
                   className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400"

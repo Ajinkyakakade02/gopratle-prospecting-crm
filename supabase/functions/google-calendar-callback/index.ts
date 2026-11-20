@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { encryptToken } from "../_shared/crypto.ts";
+import { validateReturnUrl } from "../_shared/redirectValidation.ts";
 
 function appendQueryParam(baseUrl: string, key: string, value: string): string {
   try {
@@ -53,7 +54,10 @@ Deno.serve(async (req: Request) => {
     return Response.redirect(redirectUrl, 302);
   }
 
-  const returnUrl = oauthState.return_url || defaultFrontendUrl;
+  let returnUrl = oauthState.return_url || defaultFrontendUrl;
+
+  // Secondary validation of return_url before redirecting
+  returnUrl = validateReturnUrl(returnUrl, defaultFrontendUrl);
 
   // Immediately consume the state so it cannot be re-used
   await supabaseAdmin
@@ -122,7 +126,7 @@ Deno.serve(async (req: Request) => {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error("Google token exchange error status:", tokenResponse.status);
+      console.error("Google token exchange error status:", tokenResponse.status, errorText);
       const redirectUrl = appendQueryParam(
         returnUrl,
         "calendar_error",
@@ -133,7 +137,7 @@ Deno.serve(async (req: Request) => {
 
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
-    let refreshToken = tokenData.refresh_token;
+    const refreshToken = tokenData.refresh_token;
 
     // If Google didn't return a refresh_token (can happen if user reconnected),
     // retain the existing encrypted refresh token if available
@@ -226,7 +230,7 @@ Deno.serve(async (req: Request) => {
     );
     return Response.redirect(successUrl, 302);
   } catch (err) {
-    console.error("Callback exception occurred");
+    console.error("Callback exception occurred:", err);
     const redirectUrl = appendQueryParam(
       returnUrl,
       "calendar_error",

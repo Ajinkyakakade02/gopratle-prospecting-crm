@@ -107,15 +107,40 @@ const UserMiddleware = async (
   }
 };
 
-const PBKDF2_SALT = new TextEncoder().encode("gopratle-calendar-token-salt-v1");
-const PBKDF2_ITERATIONS = 100000;
+const getUserSale = async (user: User) => {
+  return (
+    await supabaseAdmin
+      .from("sales")
+      .select("*")
+      .eq("user_id", user.id)
+      .single()
+  )?.data;
+};
 
-async function deriveAesKey(secret: string): Promise<CryptoKey> {
-  const enc = new TextEncoder();
+function getEnv(key: string): string | undefined {
+  if (typeof Deno !== "undefined" && Deno?.env?.get) {
+    return Deno.env.get(key);
+  }
+  if (typeof process !== "undefined" && process?.env) {
+    return process.env[key];
+  }
+  return undefined;
+}
+
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const secret = getEnv("GOOGLE_CALENDAR_ENCRYPTION_KEY");
+  if (!secret) {
+    throw new Error(
+      "Missing GOOGLE_CALENDAR_ENCRYPTION_KEY environment secret. " +
+      "Set this secret in your Supabase project before using calendar encryption.",
+    );
+  }
+
+  const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
-    enc.encode(secret),
-    "PBKDF2",
+    encoder.encode(secret),
+    { name: "PBKDF2" },
     false,
     ["deriveKey"],
   );
@@ -123,8 +148,8 @@ async function deriveAesKey(secret: string): Promise<CryptoKey> {
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: PBKDF2_SALT,
-      iterations: PBKDF2_ITERATIONS,
+      salt: encoder.encode("gopratle-calendar-salt-v1"),
+      iterations: 100000,
       hash: "SHA-256",
     },
     keyMaterial,
@@ -134,78 +159,56 @@ async function deriveAesKey(secret: string): Promise<CryptoKey> {
   );
 }
 
-function getEncryptionSecret(): string {
-  const secret = Deno.env.get("GOOGLE_CALENDAR_ENCRYPTION_KEY");
-  if (!secret) {
-    throw new Error(
-      "Missing GOOGLE_CALENDAR_ENCRYPTION_KEY environment secret.",
-    );
-  }
-  return secret;
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
-  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-function base64ToArrayBuffer(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
 async function encryptToken(plainText: string): Promise<string> {
   if (!plainText) return "";
-  const secret = getEncryptionSecret();
-  const key = await deriveAesKey(secret);
-
+  const key = await getEncryptionKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encodedPlain = new TextEncoder().encode(plainText);
+  const encoder = new TextEncoder();
 
-  const cipherBuffer = await crypto.subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv,
-    },
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
     key,
-    encodedPlain,
+    encoder.encode(plainText),
   );
 
-  const combined = new Uint8Array(iv.length + cipherBuffer.byteLength);
-  combined.set(iv, 0);
-  combined.set(new Uint8Array(cipherBuffer), iv.length);
+  const ivHex = Array.from(iv)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
-  return arrayBufferToBase64(combined);
+  const cipherHex = Array.from(new Uint8Array(encryptedBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  return `${ivHex}:${cipherHex}`;
 }
 
-async function decryptToken(cipherBase64: string): Promise<string> {
-  if (!cipherBase64) return "";
-  const secret = getEncryptionSecret();
-  const key = await deriveAesKey(secret);
-
-  const combined = base64ToArrayBuffer(cipherBase64);
-  if (combined.length < 13) {
-    throw new Error("Invalid cipher payload: insufficient length");
+async function decryptToken(encryptedString: string): Promise<string> {
+  if (!encryptedString) return "";
+  const parts = encryptedString.split(":");
+  if (parts.length !== 2) {
+    throw new Error("Invalid encrypted token format: expected iv:ciphertext");
   }
 
-  const iv = combined.slice(0, 12);
-  const data = combined.slice(12);
+  const [ivHex, cipherHex] = parts;
+  if (!ivHex || !cipherHex) {
+    throw new Error("Invalid encrypted token format: empty components");
+  }
+
+  const ivMatches = ivHex.match(/.{1,2}/g);
+  const cipherMatches = cipherHex.match(/.{1,2}/g);
+
+  if (!ivMatches || !cipherMatches) {
+    throw new Error("Invalid hex characters in encrypted token");
+  }
+
+  const iv = new Uint8Array(ivMatches.map((b) => parseInt(b, 16)));
+  const cipher = new Uint8Array(cipherMatches.map((b) => parseInt(b, 16)));
+  const key = await getEncryptionKey();
 
   const decryptedBuffer = await crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv,
-    },
+    { name: "AES-GCM", iv },
     key,
-    data,
+    cipher,
   );
 
   return new TextDecoder().decode(decryptedBuffer);
@@ -317,6 +320,18 @@ Deno.serve(async (req: Request) =>
           return createErrorResponse(404, `Task with ID ${taskId} not found`);
         }
 
+        // Ownership check: verify task belongs to authenticated user's sales profile
+        const sale = await getUserSale(user);
+        if (!sale) {
+          return createErrorResponse(404, "Sales profile not found for user");
+        }
+        if (task.sales_id !== sale.id) {
+          return createErrorResponse(
+            403,
+            "You are not authorized to sync this task to Google Calendar",
+          );
+        }
+
         // Fetch Google Calendar connection for this user
         const { data: connection, error: connError } = await supabaseAdmin
           .from("google_calendar_connections")
@@ -388,18 +403,20 @@ Deno.serve(async (req: Request) =>
           ``,
           `Task: ${task.text || "Scheduled Follow-up"}`,
           `Type: ${task.type || "follow-up"}`,
-          `Prospect: ${contactName}`,
-          contact?.title ? `Title: ${contact.title}` : null,
-          companyName ? `Company: ${companyName}` : null,
-          contact?.status ? `Stage: ${contact.status}` : null,
-          emails ? `\nEmail(s):\n${emails}` : null,
-          phones ? `\nPhone(s):\n${phones}` : null,
-          contact?.linkedin_url ? `LinkedIn: ${contact.linkedin_url}` : null,
+          `Contact: ${contactName}`,
+          contact?.title ? `Role: ${contact.title}` : "",
+          companyName ? `Company: ${companyName}` : "",
+          contact?.lead_source ? `Lead Source: ${contact.lead_source}` : "",
+          contact?.status ? `Pipeline Stage: ${contact.status}` : "",
+          contact?.linkedin_url ? `LinkedIn: ${contact.linkedin_url}` : "",
+          emails ? `\nEmail Details:\n${emails}` : "",
+          phones ? `\nPhone Details:\n${phones}` : "",
         ]
           .filter(Boolean)
           .join("\n");
 
-        const calendarEventPayload: any = {
+        // Event payload for internal follow-up reminder (prospects are NOT auto-invited as attendees)
+        const eventPayload: any = {
           summary,
           description,
           start: {
@@ -411,51 +428,32 @@ Deno.serve(async (req: Request) =>
             timeZone: timezone,
           },
           reminders: {
-            useDefault: false,
-            overrides: [
-              { method: "popup", minutes: 10 },
-              { method: "email", minutes: 30 },
-            ],
+            useDefault: true,
           },
         };
 
-        // Add attendee if contact has primary email
-        if (Array.isArray(contact?.email_jsonb) && contact.email_jsonb.length > 0) {
-          const primaryEmail = contact.email_jsonb[0]?.email;
-          if (primaryEmail) {
-            calendarEventPayload.attendees = [
-              {
-                email: primaryEmail,
-                displayName: contactName,
-              },
-            ];
-          }
-        }
-
         try {
-          // Get valid access token (refreshes if needed)
           const accessToken = await getValidAccessToken(connection);
 
-          // Prevent duplicate events: if task already has a google_event_id, update it (PATCH)
-          const existingEventId = task.google_event_id;
-          let calendarResponse: Response;
-
-          if (existingEventId) {
-            calendarResponse = await fetch(
-              `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(existingEventId)}`,
+          let calRes: Response;
+          // Duplicate prevention / idempotent update:
+          // If task already has a google_event_id, update it via PATCH instead of creating a duplicate
+          if (task.google_event_id) {
+            calRes = await fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(task.google_event_id)}`,
               {
                 method: "PATCH",
                 headers: {
                   Authorization: `Bearer ${accessToken}`,
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify(calendarEventPayload),
+                body: JSON.stringify(eventPayload),
               },
             );
 
-            // If existing event was deleted on Google Calendar (404), fall back to create (POST)
-            if (calendarResponse.status === 404) {
-              calendarResponse = await fetch(
+            // If existing event was deleted on Google's side (404/410), fall back to creating a new one
+            if (calRes.status === 404 || calRes.status === 410) {
+              calRes = await fetch(
                 "https://www.googleapis.com/calendar/v3/calendars/primary/events",
                 {
                   method: "POST",
@@ -463,12 +461,12 @@ Deno.serve(async (req: Request) =>
                     Authorization: `Bearer ${accessToken}`,
                     "Content-Type": "application/json",
                   },
-                  body: JSON.stringify(calendarEventPayload),
+                  body: JSON.stringify(eventPayload),
                 },
               );
             }
           } else {
-            calendarResponse = await fetch(
+            calRes = await fetch(
               "https://www.googleapis.com/calendar/v3/calendars/primary/events",
               {
                 method: "POST",
@@ -476,40 +474,39 @@ Deno.serve(async (req: Request) =>
                   Authorization: `Bearer ${accessToken}`,
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify(calendarEventPayload),
+                body: JSON.stringify(eventPayload),
               },
             );
           }
 
-          if (!calendarResponse.ok) {
-            const errorBody = await calendarResponse.text();
-            console.error("Google Calendar API error:", calendarResponse.status, errorBody);
+          if (!calRes.ok) {
+            const errorBody = await calRes.text();
+            console.error("Google Calendar API error status:", calRes.status);
 
             await supabaseAdmin
               .from("tasks")
               .update({
                 google_event_status: "failed",
-                google_event_error: `Google API error (${calendarResponse.status}): ${errorBody.slice(0, 200)}`,
+                google_event_error: `Google Calendar API error (${calRes.status})`,
               })
               .eq("id", taskId);
 
             return createErrorResponse(
-              calendarResponse.status,
-              `Google Calendar API returned error: ${calendarResponse.statusText}`,
-              { details: errorBody },
+              500,
+              `Google Calendar API rejected event creation: ${errorBody}`,
             );
           }
 
-          const createdEvent = await calendarResponse.json();
-          const googleEventId = createdEvent.id;
-          const googleEventLink = createdEvent.htmlLink;
+          const calData = await calRes.json();
+          const eventId = calData.id;
+          const eventLink = calData.htmlLink || null;
 
-          // Save event ID and link to task
+          // Update task in database with success status
           await supabaseAdmin
             .from("tasks")
             .update({
-              google_event_id: googleEventId,
-              google_event_link: googleEventLink,
+              google_event_id: eventId,
+              google_event_link: eventLink,
               google_event_status: "synced",
               google_event_error: null,
             })
@@ -518,30 +515,28 @@ Deno.serve(async (req: Request) =>
           return new Response(
             JSON.stringify({
               success: true,
-              eventId: googleEventId,
-              eventLink: googleEventLink,
-              summary: createdEvent.summary,
-              start: createdEvent.start,
-              end: createdEvent.end,
+              eventId,
+              eventLink,
+              message: "Google Calendar event created successfully",
             }),
             {
               headers: { "Content-Type": "application/json", ...corsHeaders },
             },
           );
-        } catch (err: any) {
-          console.error("Error creating Google Calendar event:", err);
+        } catch (error: any) {
+          console.error("Error creating Google Calendar event:", error?.message);
 
           await supabaseAdmin
             .from("tasks")
             .update({
               google_event_status: "failed",
-              google_event_error: err?.message || "Unknown error creating calendar event",
+              google_event_error: error?.message || "Internal error",
             })
             .eq("id", taskId);
 
           return createErrorResponse(
             500,
-            `Failed to create Google Calendar event: ${err?.message || "Internal error"}`,
+            `Failed to create Google Calendar event: ${error?.message || "Unknown error"}`,
           );
         }
       }),

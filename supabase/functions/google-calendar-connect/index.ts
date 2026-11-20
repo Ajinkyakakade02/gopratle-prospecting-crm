@@ -4,6 +4,7 @@ import { createErrorResponse } from "../_shared/utils.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
+import { validateReturnUrl } from "../_shared/redirectValidation.ts";
 
 Deno.serve(async (req: Request) =>
   OptionsMiddleware(req, async (req) =>
@@ -69,10 +70,15 @@ Deno.serve(async (req: Request) =>
           }
         }
 
+        const defaultFrontendUrl =
+          Deno.env.get("CRM_FRONTEND_URL") || "http://localhost:5173";
+
         if (!returnUrl) {
-          returnUrl =
-            Deno.env.get("CRM_FRONTEND_URL") || "http://localhost:5173";
+          returnUrl = defaultFrontendUrl;
         }
+
+        // Validate return_url against an allowlist of permitted origins
+        returnUrl = validateReturnUrl(returnUrl, defaultFrontendUrl);
 
         // Generate cryptographically secure random state (CSRF prevention)
         const state = crypto.randomUUID();
