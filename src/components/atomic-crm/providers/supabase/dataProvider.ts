@@ -419,7 +419,7 @@ export const getDataProvider = () => {
   }
   if (!config.supabasePublishableKey) {
     throw new Error(
-      "Please set the VITE_SB_PUBLISHABLE_KEY environment variable (or supabasePublishableKey in config.js)",
+      "Please set the VITE_SB_PUBLISHABLE_KEY (or VITE_SUPABASE_ANON_KEY) environment variable (or supabasePublishableKey in config.js)",
     );
   }
   return withLifecycleCallbacks(

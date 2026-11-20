@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   EditBase,
   Form,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { TaskFormContent } from "./TaskFormContent";
+import { useCreateCalendarEvent } from "../google-calendar/useGoogleCalendar";
 
 export const TaskEdit = ({
   open,
@@ -28,6 +30,9 @@ export const TaskEdit = ({
 }) => {
   const notify = useNotify();
   const translate = useTranslate();
+  const [syncToCalendar, setSyncToCalendar] = useState(true);
+  const createCalendarEvent = useCreateCalendarEvent();
+
   return (
     <Dialog open={open} onOpenChange={close}>
       {open && taskId && (
@@ -42,6 +47,9 @@ export const TaskEdit = ({
                 type: "info",
                 undoable: true,
               });
+              if (syncToCalendar) {
+                createCalendarEvent.mutate({ taskId });
+              }
             },
           }}
           redirect={false}
@@ -53,7 +61,10 @@ export const TaskEdit = ({
                   {translate("resources.tasks.action.edit")}
                 </DialogTitle>
               </DialogHeader>
-              <TaskFormContent />
+              <TaskFormContent
+                syncToCalendar={syncToCalendar}
+                setSyncToCalendar={setSyncToCalendar}
+              />
               <DialogFooter className="w-full sm:justify-between gap-4">
                 <DeleteButton
                   mutationOptions={{

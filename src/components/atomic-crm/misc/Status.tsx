@@ -26,3 +26,35 @@ export const Status = ({
     </div>
   );
 };
+
+export const StageBadge = ({
+  status,
+  className,
+}: {
+  status?: string;
+  className?: string;
+}) => {
+  const { noteStatuses } = useConfigurationContext();
+  if (!status || !noteStatuses) return null;
+  const statusObject = noteStatuses.find((s: any) => s.value === status);
+  if (!statusObject) return null;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border shadow-xs transition-colors shrink-0",
+        className,
+      )}
+      style={{
+        backgroundColor: `${statusObject.color}20`,
+        borderColor: `${statusObject.color}60`,
+      }}
+    >
+      <span
+        className="inline-block w-2 h-2 rounded-full shrink-0"
+        style={{ backgroundColor: statusObject.color }}
+      />
+      <span>{statusObject.label}</span>
+    </span>
+  );
+};

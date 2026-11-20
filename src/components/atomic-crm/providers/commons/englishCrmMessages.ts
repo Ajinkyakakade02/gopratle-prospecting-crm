@@ -70,6 +70,7 @@ export const englishCrmMessages = {
         misc: "Misc",
         personal_info: "Personal info",
         position: "Position",
+        pipeline: "Pipeline Stage",
       },
       fields: {
         first_name: "First name",
@@ -83,6 +84,7 @@ export const englishCrmMessages = {
         phone_number: "Phone number",
         linkedin_url: "LinkedIn URL",
         background: "Background info (bio, how you met, etc)",
+        lead_source: "Lead Source",
         has_newsletter: "Has newsletter",
         sales_id: "Account manager",
       },
@@ -178,9 +180,9 @@ export const englishCrmMessages = {
       },
       hot: {
         empty_change_status:
-          'Change the status of a contact by adding a note to that contact and clicking on "show options".',
-        empty_hint: 'Contacts with a "hot" status will appear here.',
-        title: "Hot Contacts",
+          'Change the stage of a contact by updating their pipeline status in the contact details.',
+        empty_hint: 'Contacts in "Meeting Scheduled" or later stages will appear here.',
+        title: "Active Prospects",
       },
     },
     deals: {
@@ -319,6 +321,7 @@ export const englishCrmMessages = {
         type: "Type",
         contact_id: "Contact",
         due_short: "due",
+        google_event_link: "Google Calendar",
       },
       action: {
         add: "Add task",
@@ -390,7 +393,7 @@ export const englishCrmMessages = {
         creating: "Creating...",
         initial_user_created: "Initial user successfully created",
       },
-      welcome_title: "Welcome to Atomic CRM",
+      welcome_title: "Welcome to GoPratle Prospecting CRM",
     },
     common: {
       account_manager: "Account manager",
@@ -436,7 +439,7 @@ export const englishCrmMessages = {
       latest_notes: "My Latest Notes",
       latest_notes_added_ago: "added %{timeAgo}",
       stepper: {
-        install: "Install Atomic CRM",
+        install: "Install GoPratle Prospecting CRM",
         progress: "%{step}/3 done",
         whats_next: "What's next?",
       },
@@ -567,7 +570,7 @@ export const englishCrmMessages = {
     },
     language: "Language",
     navigation: {
-      label: "CRM navigation",
+      label: "GoPratle navigation",
     },
     profile: {
       add_secondary_email: "Add an email",
@@ -582,13 +585,22 @@ export const englishCrmMessages = {
         "Other addresses you send emails from. Leave one empty to remove it.",
       inbound: {
         description:
-          "You can start sending emails to your server's inbound email address, e.g. by adding it to the %{field} field. Atomic CRM will process the emails and add notes to the corresponding contacts.",
+          "You can start sending emails to your server's inbound email address, e.g. by adding it to the %{field} field. GoPratle will process the emails and add notes to the corresponding contacts.",
         title: "Inbound email",
       },
       mcp: {
         title: "MCP Server",
         description:
           "Use this URL to connect your AI assistant to your CRM data via the Model Context Protocol (MCP).",
+      },
+      google_calendar: {
+        title: "Google Calendar",
+        connected: "Connected",
+        not_connected: "Not connected",
+        connect: "Connect Google Calendar",
+        disconnect: "Disconnect",
+        description:
+          "Sync prospect follow-ups and meetings directly to your Google Calendar.",
       },
       password: {
         change: "Change password",

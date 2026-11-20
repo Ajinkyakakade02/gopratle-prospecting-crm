@@ -26,6 +26,17 @@ export type ContactImportSchema = {
   status: string;
   tags: string;
   linkedin_url: string;
+  lead_source?: string;
+};
+
+const mapLegacyStatus = (status?: string): string => {
+  if (!status) return "new";
+  const normalized = status.toLowerCase().trim();
+  if (normalized === "cold") return "new";
+  if (normalized === "warm") return "contacted";
+  if (normalized === "hot") return "meeting-scheduled";
+  if (normalized === "in-contract") return "closed";
+  return normalized;
 };
 
 export function useContactImport() {
@@ -86,6 +97,7 @@ export function useContactImport() {
             company: companyName,
             tags: tagNames,
             linkedin_url,
+            lead_source,
           }) => {
             const email_jsonb = [
               { email: email_work, type: "Work" },
@@ -120,11 +132,12 @@ export function useContactImport() {
                   ? new Date(last_seen).toISOString()
                   : today,
                 has_newsletter,
-                status,
+                status: mapLegacyStatus(status),
                 company_id: company?.id,
                 tags: tagList.map((tag) => tag.id),
                 sales_id: user?.identity?.id,
                 linkedin_url,
+                lead_source: lead_source || null,
               },
             });
           },

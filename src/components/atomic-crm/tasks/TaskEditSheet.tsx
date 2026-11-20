@@ -3,6 +3,8 @@ import type { Identifier } from "ra-core";
 import { useGetRecordRepresentation, useTranslate } from "ra-core";
 import { EditSheet } from "../misc/EditSheet";
 import { TaskFormContent } from "./TaskFormContent";
+import { useState } from "react";
+import { useCreateCalendarEvent } from "../google-calendar/useGoogleCalendar";
 
 export interface TaskEditSheetProps {
   open: boolean;
@@ -17,6 +19,9 @@ export const TaskEditSheet = ({
 }: TaskEditSheetProps) => {
   const translate = useTranslate();
   const getContactRepresentation = useGetRecordRepresentation("contacts");
+  const [syncToCalendar, setSyncToCalendar] = useState(true);
+  const createCalendarEvent = useCreateCalendarEvent();
+
   return (
     <EditSheet
       resource="tasks"
@@ -37,10 +42,20 @@ export const TaskEditSheet = ({
         />
       }
       redirect={false}
+      mutationOptions={{
+        onSuccess: () => {
+          if (syncToCalendar) {
+            createCalendarEvent.mutate({ taskId });
+          }
+        },
+      }}
       open={open}
       onOpenChange={onOpenChange}
     >
-      <TaskFormContent />
+      <TaskFormContent
+        syncToCalendar={syncToCalendar}
+        setSyncToCalendar={setSyncToCalendar}
+      />
     </EditSheet>
   );
 };

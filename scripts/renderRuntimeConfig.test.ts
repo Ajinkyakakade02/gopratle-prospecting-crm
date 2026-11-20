@@ -27,6 +27,18 @@ describe("renderRuntimeConfig", () => {
     });
   });
 
+  it("supports VITE_SUPABASE_ANON_KEY as fallback for VITE_SB_PUBLISHABLE_KEY", () => {
+    expect(
+      loadConfig({
+        VITE_SUPABASE_URL: "https://acme.supabase.co",
+        VITE_SUPABASE_ANON_KEY: "sb_anon_fallback_key",
+      }),
+    ).toEqual({
+      supabaseUrl: "https://acme.supabase.co",
+      supabasePublishableKey: "sb_anon_fallback_key",
+    });
+  });
+
   it("never writes other environment variables, which may be secrets", () => {
     const script = renderRuntimeConfig({
       VITE_SUPABASE_URL: "https://acme.supabase.co",

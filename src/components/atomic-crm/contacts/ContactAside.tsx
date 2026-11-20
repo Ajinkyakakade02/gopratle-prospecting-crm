@@ -15,6 +15,16 @@ import type { Contact } from "../types";
 import { ContactMergeButton } from "./ContactMergeButton";
 import { ExportVCardButton } from "./ExportVCardButton";
 
+const leadSourceLabels: Record<string, string> = {
+  linkedin: "LinkedIn",
+  referral: "Referral",
+  website: "Website",
+  "cold-outreach": "Cold Outreach",
+  event: "Event / Conference",
+  "inbound-email": "Inbound Email",
+  other: "Other",
+};
+
 export const ContactAside = ({ link = "edit" }: { link?: "edit" | "show" }) => {
   const record = useRecordContext<Contact>();
   const translate = useTranslate();
@@ -31,7 +41,7 @@ export const ContactAside = ({ link = "edit" }: { link?: "edit" | "show" }) => {
         )}
       </div>
 
-      <AsideSection title={translate("resources.notes.fields.status")}>
+      <AsideSection title={translate("resources.contacts.field_categories.pipeline")}>
         <ContactStatusSelector />
       </AsideSection>
 
@@ -40,6 +50,16 @@ export const ContactAside = ({ link = "edit" }: { link?: "edit" | "show" }) => {
       >
         <ContactPersonalInfo />
       </AsideSection>
+
+      {record.lead_source && (
+        <AsideSection
+          title={translate("resources.contacts.fields.lead_source")}
+        >
+          <div className="text-sm py-1">
+            {leadSourceLabels[record.lead_source] || record.lead_source}
+          </div>
+        </AsideSection>
+      )}
 
       <AsideSection
         title={translate("resources.contacts.field_categories.background_info")}

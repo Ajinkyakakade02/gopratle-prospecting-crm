@@ -20,6 +20,7 @@ const cleanContactArrayFields = (data: Contact) => {
 export const cleanupContactForCreate = (data: Contact) => {
   return cleanContactArrayFields({
     ...data,
+    status: data.status || "new",
     first_seen: new Date().toISOString(),
     last_seen: new Date().toISOString(),
     tags: [],

@@ -26,13 +26,17 @@ const ENV_KEYS = {
 const BOOLEAN_KEYS = ["isDemo", "disableEmailPasswordAuthentication"];
 
 export const renderRuntimeConfig = (env: Env): string => {
+  const effectiveEnv: Env = { ...env };
+  if (!effectiveEnv.VITE_SB_PUBLISHABLE_KEY && effectiveEnv.VITE_SUPABASE_ANON_KEY) {
+    effectiveEnv.VITE_SB_PUBLISHABLE_KEY = effectiveEnv.VITE_SUPABASE_ANON_KEY;
+  }
   const config = Object.fromEntries(
     Object.entries(ENV_KEYS)
       // An unset CI variable comes through as "": treat it as unset.
-      .filter(([, envName]) => env[envName])
+      .filter(([, envName]) => effectiveEnv[envName])
       .map(([key, envName]) => [
         key,
-        BOOLEAN_KEYS.includes(key) ? env[envName] === "true" : env[envName],
+        BOOLEAN_KEYS.includes(key) ? effectiveEnv[envName] === "true" : effectiveEnv[envName],
       ]),
   );
   return `window._atomicCrmConfig = ${JSON.stringify(config, null, 2)};\n`;

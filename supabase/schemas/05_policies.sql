@@ -68,3 +68,15 @@ create policy "Enable update for admins" on public.configuration for update to a
 
 -- Favicons excluded domains
 create policy "Enable access for authenticated users only" on public.favicons_excluded_domains to authenticated using (true) with check (true);
+
+-- Google Calendar Connections (users can only manage their own connection)
+alter table public.google_calendar_connections enable row level security;
+create policy "Users can view their own calendar connection" on public.google_calendar_connections for select to authenticated using (auth.uid() = user_id);
+create policy "Users can insert their own calendar connection" on public.google_calendar_connections for insert to authenticated with check (auth.uid() = user_id);
+create policy "Users can update their own calendar connection" on public.google_calendar_connections for update to authenticated using (auth.uid() = user_id);
+create policy "Users can delete their own calendar connection" on public.google_calendar_connections for delete to authenticated using (auth.uid() = user_id);
+
+-- Google Calendar OAuth States (CSRF prevention)
+alter table public.google_calendar_oauth_states enable row level security;
+create policy "Users can manage their own oauth states" on public.google_calendar_oauth_states for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+

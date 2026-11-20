@@ -10,7 +10,7 @@ export const defaultLightModeLogo = lightModeLogo;
 
 export const defaultCurrency = "USD";
 
-export const defaultTitle = "Atomic CRM";
+export const defaultTitle = "GoPratle Prospecting CRM";
 
 export const defaultCompanySectors = [
   { value: "communication-services", label: "Communication Services" },
@@ -46,22 +46,23 @@ export const defaultDealCategories = [
 ];
 
 export const defaultNoteStatuses = [
-  { value: "cold", label: "Cold", color: "#7dbde8" },
-  { value: "warm", label: "Warm", color: "#e8cb7d" },
-  { value: "hot", label: "Hot", color: "#e88b7d" },
-  { value: "in-contract", label: "In Contract", color: "#a4e87d" },
+  { value: "new", label: "New", color: "#7dbde8" },
+  { value: "contacted", label: "Contacted", color: "#e8cb7d" },
+  { value: "follow-up", label: "Follow-up", color: "#e8a07d" },
+  { value: "meeting-scheduled", label: "Meeting Scheduled", color: "#e88b7d" },
+  { value: "closed", label: "Closed", color: "#a4e87d" },
 ];
 
 export const defaultTaskTypes = [
   { value: "none", label: "None" },
   { value: "email", label: "Email" },
-  { value: "demo", label: "Demo" },
-  { value: "lunch", label: "Lunch" },
-  { value: "meeting", label: "Meeting" },
-  { value: "follow-up", label: "Follow-up" },
-  { value: "thank-you", label: "Thank you" },
-  { value: "ship", label: "Ship" },
   { value: "call", label: "Call" },
+  { value: "follow-up", label: "Follow-up" },
+  { value: "meeting", label: "Meeting" },
+  { value: "demo", label: "Demo" },
+  { value: "linkedin-outreach", label: "LinkedIn Outreach" },
+  { value: "lunch", label: "Lunch" },
+  { value: "thank-you", label: "Thank you" },
 ];
 
 export const defaultConfiguration: ConfigurationContextValue = {

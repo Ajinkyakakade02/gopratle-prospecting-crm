@@ -109,6 +109,15 @@ grant all on table public.favicons_excluded_domains to service_role;
 revoke all on table public.user_invitations from anon, authenticated;
 grant all on table public.user_invitations to service_role;
 
+grant all on table public.google_calendar_connections to authenticated;
+grant all on table public.google_calendar_connections to service_role;
+
+grant all on table public.google_calendar_oauth_states to authenticated;
+grant all on table public.google_calendar_oauth_states to service_role;
+
+grant all on sequence public.google_calendar_connections_id_seq to authenticated;
+grant all on sequence public.google_calendar_connections_id_seq to service_role;
+
 -- View grants
 grant all on table public.activity_log to anon;
 grant all on table public.activity_log to authenticated;

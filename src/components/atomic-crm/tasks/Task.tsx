@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Calendar as CalendarIcon, ExternalLink, AlertCircle, RefreshCw } from "lucide-react";
 import {
   useDeleteWithUndoController,
   useGetRecordRepresentation,
@@ -24,6 +24,7 @@ import type { Contact, Task as TData } from "../types";
 import { TaskEdit } from "./TaskEdit";
 import { TaskEditSheet } from "./TaskEditSheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useCreateCalendarEvent } from "../google-calendar/useGoogleCalendar";
 
 export const Task = ({
   task,
@@ -38,6 +39,7 @@ export const Task = ({
   const translate = useTranslate();
   const queryClient = useQueryClient();
   const getContactRepresentation = useGetRecordRepresentation("contacts");
+  const createCalendarEvent = useCreateCalendarEvent();
 
   const [openEdit, setOpenEdit] = useState(false);
 
@@ -146,6 +148,48 @@ export const Task = ({
                 />
               )}
             </div>
+
+            {/* Google Calendar Link & Sync Status */}
+            {task.google_event_link && (
+              <div className="mt-1">
+                <a
+                  href={task.google_event_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  title="Open event in Google Calendar"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  <span>Google Calendar</span>
+                  <ExternalLink className="w-3 h-3 opacity-70" />
+                </a>
+              </div>
+            )}
+
+            {task.google_event_status === "failed" && !task.google_event_link && (
+              <div className="flex items-center gap-2 mt-1">
+                <span
+                  className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400"
+                  title={task.google_event_error || "Calendar sync failed"}
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Calendar sync failed
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    createCalendarEvent.mutate({ taskId: task.id });
+                  }}
+                  disabled={createCalendarEvent.isPending}
+                  className="text-xs text-primary underline hover:no-underline cursor-pointer flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3 h-3 ${createCalendarEvent.isPending ? "animate-spin" : ""}`} />
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -201,6 +245,24 @@ export const Task = ({
             >
               {translate("ra.action.edit")}
             </DropdownMenuItem>
+            {task.google_event_link ? (
+              <DropdownMenuItem
+                className="cursor-pointer h-12 md:h-8 px-4 md:px-2 text-base md:text-sm flex items-center gap-2"
+                onClick={() => window.open(task.google_event_link!, "_blank")}
+              >
+                <CalendarIcon className="w-4 h-4 text-blue-500" />
+                Open in Google Calendar
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                className="cursor-pointer h-12 md:h-8 px-4 md:px-2 text-base md:text-sm flex items-center gap-2"
+                onClick={() => createCalendarEvent.mutate({ taskId: task.id })}
+                disabled={createCalendarEvent.isPending}
+              >
+                <CalendarIcon className="w-4 h-4 text-blue-500" />
+                Sync to Google Calendar
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               className="cursor-pointer h-12 md:h-8 px-4 md:px-2 text-base md:text-sm"
               onClick={handleDelete}

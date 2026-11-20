@@ -3,7 +3,7 @@ import { useRecordContext, useTranslate, WithRecord } from "ra-core";
 import { ArrayField } from "@/components/admin/array-field";
 import { SingleFieldList } from "@/components/admin/single-field-list";
 import { EmailField } from "@/components/admin/email-field";
-import { Mail, Phone, Linkedin, Check } from "lucide-react";
+import { Mail, Phone, Linkedin, Check, Compass } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   contactGender,
@@ -45,6 +45,21 @@ export const ContactPersonalInfo = () => {
             >
               LinkedIn
             </a>
+          }
+        />
+      )}
+      {record.lead_source && (
+        <PersonalInfoRow
+          icon={<Compass className="w-4 h-4 text-muted-foreground" />}
+          primary={
+            <span className="text-sm">
+              <span className="text-muted-foreground">
+                {translate("resources.contacts.fields.lead_source")}:{" "}
+              </span>
+              <span className="font-medium capitalize">
+                {record.lead_source.replace(/-/g, " ")}
+              </span>
+            </span>
           }
         />
       )}

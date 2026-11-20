@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
 
-import { Status } from "../misc/Status";
+import { StageBadge } from "../misc/Status";
 import { formatRelativeDate } from "../misc/RelativeDate";
 import type { Contact } from "../types";
 import { Avatar } from "./Avatar";
@@ -157,19 +157,23 @@ const ContactItemContent = ({
             </div>
           ) : null}
         </div>
-        {contact.last_seen && (
-          <div className="text-right ml-4">
+        {contact.last_seen ? (
+          <div className="text-right ml-4 flex flex-col items-end gap-1">
+            <StageBadge status={contact.status} />
             <div
-              className="text-sm text-muted-foreground"
+              className="text-xs text-muted-foreground"
               title={contact.last_seen}
             >
               {translate("crm.common.last_activity_with_date", {
                 date: lastActivity,
-              })}{" "}
-              <Status status={contact.status} />
+              })}
             </div>
           </div>
-        )}
+        ) : contact.status ? (
+          <div className="text-right ml-4">
+            <StageBadge status={contact.status} />
+          </div>
+        ) : null}
       </Link>
     </div>
   );
@@ -257,11 +261,11 @@ const ContactItemContentMobile = ({ contact }: { contact: Contact }) => {
       <Avatar />
       <div className="flex flex-col grow justify-between">
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center gap-2">
             <div className="font-medium">
               <RecordRepresentation />
             </div>
-            <Status status={contact.status} />
+            <StageBadge status={contact.status} />
           </div>
           <div className="text-sm text-muted-foreground">
             <div className="flex flex-col gap-1">

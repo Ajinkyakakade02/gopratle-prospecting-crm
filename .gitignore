@@ -1,4 +1,4 @@
-﻿# See https://help.github.com/ignore-files/ for more about ignoring files.
+# See https://help.github.com/ignore-files/ for more about ignoring files.
 
 # editors
 .idea/
@@ -40,8 +40,6 @@ dist-demo/
 # Shadcn Registry
 public/r/
 
-.claude/settings.local.json
-
 # Harness scratch (promotion lock, kept on purpose; worktrees cleaned at SessionEnd)
 .promote.lock
 # Rendered per-session harness board (render-status hook; cleaned at SessionEnd)
@@ -58,5 +56,6 @@ node_modules/
 
 *.lock
  
+ # GoPratle - Keep local environment files private
 .env.*
 supabase/functions/.env

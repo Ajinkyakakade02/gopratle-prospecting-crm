@@ -7,11 +7,16 @@ import { DateTimeInput } from "@/components/admin";
 
 import { contactOptionText } from "../misc/ContactOption";
 import { useConfigurationContext } from "../root/ConfigurationContext";
+import { GoogleCalendarTaskControl } from "../google-calendar/GoogleCalendarCard";
 
 export const TaskFormContent = ({
   selectContact,
+  syncToCalendar,
+  setSyncToCalendar,
 }: {
   selectContact?: boolean;
+  syncToCalendar?: boolean;
+  setSyncToCalendar?: (checked: boolean) => void;
 }) => {
   const { taskTypes } = useConfigurationContext();
   return (
@@ -54,6 +59,13 @@ export const TaskFormContent = ({
           helperText={false}
         />
       </div>
+
+      {setSyncToCalendar && (
+        <GoogleCalendarTaskControl
+          syncToCalendar={syncToCalendar ?? true}
+          setSyncToCalendar={setSyncToCalendar}
+        />
+      )}
     </div>
   );
 };

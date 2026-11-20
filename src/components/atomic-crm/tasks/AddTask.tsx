@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import { TaskFormContent } from "./TaskFormContent";
+import { useCreateCalendarEvent } from "../google-calendar/useGoogleCalendar";
 
 export const AddTask = ({
   selectContact,
@@ -43,6 +44,9 @@ export const AddTask = ({
   const translate = useTranslate();
   const contact = useRecordContext();
   const [open, setOpen] = useState(false);
+  const [syncToCalendar, setSyncToCalendar] = useState(true);
+  const createCalendarEvent = useCreateCalendarEvent();
+
   // Set once per opening: a new due_date on each render would make ra-core
   // reset the form, wiping what the user already typed.
   const [dueDate, setDueDate] = useState<string>();
@@ -54,18 +58,27 @@ export const AddTask = ({
 
   const handleSuccess = async (data: any) => {
     setOpen(false);
-    const contact = await dataProvider.getOne("contacts", {
+    const contactRecord = await dataProvider.getOne("contacts", {
       id: data.contact_id,
     });
-    if (!contact.data) return;
-
-    await update("contacts", {
-      id: contact.data.id,
-      data: { last_seen: new Date().toISOString() },
-      previousData: contact.data,
-    });
+    if (contactRecord.data) {
+      await update("contacts", {
+        id: contactRecord.data.id,
+        data: { last_seen: new Date().toISOString() },
+        previousData: contactRecord.data,
+      });
+    }
 
     notify("resources.tasks.added");
+
+    // Automatically sync to Google Calendar if option enabled
+    if (syncToCalendar && data?.id) {
+      try {
+        await createCalendarEvent.mutateAsync({ taskId: data.id });
+      } catch {
+        // Notification is already dispatched by useCreateCalendarEvent
+      }
+    }
   };
 
   if (!identity) return null;
@@ -129,7 +142,11 @@ export const AddTask = ({
                     : translate("resources.tasks.dialog.create")}
                 </DialogTitle>
               </DialogHeader>
-              <TaskFormContent selectContact={selectContact} />
+              <TaskFormContent
+                selectContact={selectContact}
+                syncToCalendar={syncToCalendar}
+                setSyncToCalendar={setSyncToCalendar}
+              />
               <DialogFooter className="w-full justify-end">
                 <SaveButton />
               </DialogFooter>

@@ -34,6 +34,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { GoogleCalendarCard } from "../google-calendar/GoogleCalendarCard";
 import ImageEditorField from "../misc/ImageEditorField";
 import type { CrmDataProvider } from "../providers/types";
 import { config } from "../root/config";
@@ -237,6 +238,7 @@ const ProfileForm = ({
           </div>
         </CardContent>
       </Card>
+      <GoogleCalendarCard />
       {config.inboundEmail && (
         <Card>
           <CardContent>

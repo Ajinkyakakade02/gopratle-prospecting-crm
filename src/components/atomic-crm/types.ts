@@ -101,6 +101,7 @@ export type Contact = {
   status: string;
   background: string;
   phone_jsonb: PhoneNumberAndType[];
+  lead_source?: string | null;
   nb_tasks?: number;
   company_name?: string;
 } & Pick<RaRecord, "id">;
@@ -155,6 +156,10 @@ export type Task = {
   done_date?: string | null;
   sales_id?: Identifier;
   created_at?: string;
+  google_event_id?: string | null;
+  google_event_link?: string | null;
+  google_event_status?: "unsynced" | "synced" | "failed";
+  google_event_error?: string | null;
 } & Pick<RaRecord, "id">;
 
 export type ActivityCompanyCreated = {

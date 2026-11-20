@@ -13,6 +13,7 @@ import { foreignKeyMapping } from "../notes/foreignKeyMapping";
 import { TaskFormContent } from "./TaskFormContent";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useCreateCalendarEvent } from "../google-calendar/useGoogleCalendar";
 
 export interface TaskCreateSheetProps {
   open: boolean;
@@ -28,6 +29,8 @@ export const TaskCreateSheet = ({
   const { identity } = useGetIdentity();
   const translate = useTranslate();
   const getContactRepresentation = useGetRecordRepresentation("contacts");
+  const createCalendarEvent = useCreateCalendarEvent();
+  const [syncToCalendar, setSyncToCalendar] = useState(true);
 
   const selectContact = contact_id == null;
   const { data: contact } = useGetOne(
@@ -70,6 +73,15 @@ export const TaskCreateSheet = ({
       redirect(`/contacts/${contact_id}/show?tab=tasks`);
     }
     onOpenChange(false);
+
+    // Sync to Google Calendar if selected
+    if (syncToCalendar && data?.id) {
+      try {
+        await createCalendarEvent.mutateAsync({ taskId: data.id });
+      } catch {
+        // Notification handled by useCreateCalendarEvent
+      }
+    }
   };
 
   return (
@@ -97,7 +109,11 @@ export const TaskCreateSheet = ({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <TaskFormContent selectContact={selectContact} />
+      <TaskFormContent
+        selectContact={selectContact}
+        syncToCalendar={syncToCalendar}
+        setSyncToCalendar={setSyncToCalendar}
+      />
     </CreateSheet>
   );
 };

@@ -49,6 +49,10 @@ export const generateTasks = (db: Db) => {
       done_date: undefined,
       sales_id: 0,
       created_at: randomDate(new Date(contact.first_seen)).toISOString(),
+      google_event_id: null,
+      google_event_link: null,
+      google_event_status: "unsynced",
+      google_event_error: null,
     };
   });
 };

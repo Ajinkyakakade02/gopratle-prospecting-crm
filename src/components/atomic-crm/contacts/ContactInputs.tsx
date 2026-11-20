@@ -5,6 +5,8 @@ import {
   useTranslate,
   useUpdate,
   useNotify,
+  useDataProvider,
+  useGetIdentity,
 } from "ra-core";
 import type { FocusEvent, ClipboardEventHandler } from "react";
 import { useFormContext } from "react-hook-form";
@@ -89,6 +91,19 @@ const ContactPositionInputs = () => {
       <ReferenceInput source="company_id" reference="companies" perPage={10}>
         <AutocompleteCompanyInput label="resources.contacts.fields.company_id" />
       </ReferenceInput>
+      <SelectInput
+        source="status"
+        label="resources.contacts.field_categories.pipeline"
+        choices={[
+          { id: "new", name: "New" },
+          { id: "contacted", name: "Contacted" },
+          { id: "follow-up", name: "Follow-up" },
+          { id: "meeting-scheduled", name: "Meeting Scheduled" },
+          { id: "closed", name: "Closed" },
+        ]}
+        defaultValue="new"
+        helperText={false}
+      />
     </div>
   );
 };
@@ -206,11 +221,28 @@ const ContactPersonalInformationInputs = () => {
 
 const ContactMiscInputs = () => {
   const translate = useTranslate();
+
+  const leadSourceChoices = [
+    { id: "linkedin", name: "LinkedIn" },
+    { id: "referral", name: "Referral" },
+    { id: "website", name: "Website" },
+    { id: "cold-outreach", name: "Cold Outreach" },
+    { id: "event", name: "Event / Conference" },
+    { id: "inbound-email", name: "Inbound Email" },
+    { id: "other", name: "Other" },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
       <h6 className="text-lg font-semibold">
         {translate("resources.contacts.field_categories.misc")}
       </h6>
+      <SelectInput
+        source="lead_source"
+        helperText={false}
+        choices={leadSourceChoices}
+        emptyText="None"
+      />
       <TextInput source="background" multiline helperText={false} />
       <BooleanInput source="has_newsletter" helperText={false} />
       <ReferenceInput
@@ -238,20 +270,48 @@ export const ContactStatusSelector = () => {
   const record = useRecordContext<Contact>();
   const [update] = useUpdate<Contact>();
   const notify = useNotify();
+  const dataProvider = useDataProvider();
+  const { identity } = useGetIdentity();
   if (!record) return null;
+
+  const stageLabels: Record<string, string> = {
+    new: "New",
+    contacted: "Contacted",
+    "follow-up": "Follow-up",
+    "meeting-scheduled": "Meeting Scheduled",
+    closed: "Closed",
+  };
 
   const handleStatusChange = (nextStatus: string) => {
     if (nextStatus === record?.status) return;
 
+    const previousStatus = record?.status;
     update(
       "contacts",
       {
         id: record.id,
-        data: { status: nextStatus },
+        data: { status: nextStatus, last_seen: new Date().toISOString() },
         previousData: record,
       },
       {
         mutationMode: "optimistic",
+        onSuccess: async () => {
+          const nextStageLabel = stageLabels[nextStatus] || nextStatus;
+          const prevStageLabel = previousStatus ? (stageLabels[previousStatus] || previousStatus) : "None";
+          try {
+            await dataProvider.create("contact_notes", {
+              data: {
+                contact_id: record.id,
+                text: `Stage changed from **${prevStageLabel}** to **${nextStageLabel}**`,
+                status: nextStatus,
+                sales_id: identity?.id,
+                date: new Date().toISOString(),
+              },
+            });
+          } catch {
+            // Stage update succeeded even if note logging encounters an issue
+          }
+        },
         onError: (error) => {
           notify(
             typeof error === "string"

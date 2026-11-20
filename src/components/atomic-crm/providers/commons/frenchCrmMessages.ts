@@ -73,6 +73,7 @@ export const frenchCrmMessages = {
         misc: "Divers",
         personal_info: "Informations personnelles",
         position: "Poste",
+        pipeline: "Étape du pipeline",
       },
       fields: {
         first_name: "Prénom",
@@ -86,6 +87,7 @@ export const frenchCrmMessages = {
         phone_number: "Numéro de téléphone",
         linkedin_url: "URL LinkedIn",
         background: "Informations de contexte",
+        lead_source: "Source du lead",
         has_newsletter: "Abonné à la newsletter",
         sales_id: "Responsable de compte",
       },
@@ -182,9 +184,9 @@ export const frenchCrmMessages = {
       },
       hot: {
         empty_change_status:
-          'Changez le statut d\'un contact en ajoutant une note à ce contact et en cliquant sur "afficher les options".',
-        empty_hint: 'Les contacts avec un statut "chaud" apparaîtront ici.',
-        title: "Contacts chauds",
+          'Changez l\'étape d\'un contact en mettant à jour leur statut de pipeline dans les détails du contact.',
+        empty_hint: 'Les contacts en étape "Réunion planifiée" ou plus avancés apparaîtront ici.',
+        title: "Prospects actifs",
       },
     },
     deals: {
@@ -324,6 +326,7 @@ export const frenchCrmMessages = {
         type: "Type",
         contact_id: "Contact",
         due_short: "échéance",
+        google_event_link: "Google Agenda",
       },
       action: {
         add: "Ajouter une tâche",
@@ -395,7 +398,7 @@ export const frenchCrmMessages = {
         creating: "Création...",
         initial_user_created: "Utilisateur initial créé avec succès",
       },
-      welcome_title: "Bienvenue sur Atomic CRM",
+      welcome_title: "Bienvenue sur GoPratle Prospecting CRM",
     },
     common: {
       account_manager: "Responsable de compte",
@@ -592,13 +595,22 @@ export const frenchCrmMessages = {
         "Autres adresses depuis lesquelles vous envoyez des e-mails. Laissez-en une vide pour la supprimer.",
       inbound: {
         description:
-          "Vous pouvez commencer à envoyer des e-mails vers l'adresse de réception de votre serveur, par exemple en l'ajoutant au champ %{field}. Atomic CRM traitera les e-mails et ajoutera des notes aux contacts correspondants.",
+          "Vous pouvez commencer à envoyer des e-mails vers l'adresse de réception de votre serveur, par exemple en l'ajoutant au champ %{field}. GoPratle traitera les e-mails et ajoutera des notes aux contacts correspondants.",
         title: "E-mail entrant",
       },
       mcp: {
         title: "Serveur MCP",
         description:
           "Utilisez cette URL pour connecter votre assistant IA aux données de votre CRM via le Model Context Protocol (MCP).",
+      },
+      google_calendar: {
+        title: "Google Agenda",
+        connected: "Connecté",
+        not_connected: "Non connecté",
+        connect: "Connecter Google Agenda",
+        disconnect: "Déconnecter",
+        description:
+          "Synchronisez les rappels et rendez-vous directement avec votre Google Agenda.",
       },
       password: {
         change: "Changer le mot de passe",
